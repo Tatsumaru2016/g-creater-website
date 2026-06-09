@@ -1,0 +1,6 @@
+{
+  "name": "G.creater Pixel Art Studio",
+  "description": "A powerful interactive single-page 3D pixel art creation tool and showcasing platform for retro-style game developers, indie creators, and digital artists.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
