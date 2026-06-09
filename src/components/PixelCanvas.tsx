@@ -247,6 +247,7 @@ export default function PixelCanvas({
       {/* Main Pixel Art Core interactive screen */}
       <div
         id="pixel_canvas_drawing_stage"
+        data-scene-panel
         ref={canvasRef}
         onMouseLeave={handleMouseLeaveCanvas}
         className="relative aspect-square w-full max-w-[420px] bg-neutral-950 rounded-xl overflow-hidden border border-neutral-800 shadow-[0_15px_40px_rgba(0,0,0,0.8)] backdrop-blur-md flex items-center justify-center p-2 group"

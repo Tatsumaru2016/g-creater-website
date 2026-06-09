@@ -11,13 +11,22 @@ import DrawingTools from "./components/DrawingTools";
 import ExportPanel from "./components/ExportPanel";
 import Logo from "./components/Logo";
 import SceneWanderers from "./components/SceneWanderers";
+import HeaderInvaders from "./components/HeaderInvaders";
 
 // Icons
 import {
   Layers, Paintbrush, Palette, Clock, Play, Cpu, Download, Grid,
   ToggleLeft, ToggleRight, Sparkles, AlertTriangle, Volume2, VolumeX,
-  ChevronDown, ChevronUp, Monitor, Zap, Heart, Disc, Info
+  ChevronDown, ChevronUp, Monitor, Zap, Heart, Disc, Info, Music, Music2
 } from "lucide-react";
+import {
+  playAppTone,
+  playInvaderSfx,
+  setInvaderAudioOptions,
+  startInvaderBgm,
+  stopInvaderBgm,
+  resumeAudioContext,
+} from "./audio/invaderAudio";
 
 export default function App() {
   // --- STATE ---
@@ -54,7 +63,8 @@ export default function App() {
   const [onionSkinPrev, setOnionSkinPrev] = useState(false);
   const [onionSkinNext, setOnionSkinNext] = useState(false);
   const [crtEffect, setCrtEffect] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [sfxEnabled, setSfxEnabled] = useState(true);
+  const [bgmEnabled, setBgmEnabled] = useState(true);
 
   // UI responsive sizes states
   const [isMobile, setIsMobile] = useState(false);
@@ -63,61 +73,18 @@ export default function App() {
   const lastScrollTime = useRef(0);
   const touchStartY = useRef(0);
 
-  // --- AUDIO SYNTH TONE ENGINE ---
-  const playRetroTone = (type: "click" | "success" | "transition" | "clear") => {
-    if (!soundEnabled) return;
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      if (type === "click") {
-        osc.type = "square";
-        osc.frequency.setValueAtTime(450, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(900, audioCtx.currentTime + 0.08);
-        gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.08);
-      } else if (type === "success") {
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
-        osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.08); // E5
-        osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.16); // G5
-        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.3);
-      } else if (type === "transition") {
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(140, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(320, audioCtx.currentTime + 0.22);
-        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.22);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.22);
-      } else if (type === "clear") {
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(280, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(70, audioCtx.currentTime + 0.18);
-        gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.18);
-      }
-    } catch (e) {
-      // AudioContext blocked
-    }
-  };
+  useEffect(() => {
+    setInvaderAudioOptions({ sfx: sfxEnabled, bgm: bgmEnabled });
+    if (bgmEnabled) startInvaderBgm();
+    else stopInvaderBgm();
+    return () => stopInvaderBgm();
+  }, [sfxEnabled, bgmEnabled]);
 
   // --- SCROLL MATRIX TRANSITION HANDLERS ---
   const handleScrollToLayer = (idx: number) => {
     if (idx < 0 || idx > 7) return;
     setActiveLayer(idx);
-    playRetroTone("transition");
+    playAppTone("transition");
   };
 
   const handleWheelScroll = (e: WheelEvent) => {
@@ -196,7 +163,7 @@ export default function App() {
     const nonTrans = art.palette.find((c) => c !== "#00000000") || art.palette[0];
     setActiveColor(nonTrans);
 
-    playRetroTone("success");
+    playAppTone("success");
     // scroll back to Hero canvas screen
     setActiveLayer(0);
   };
@@ -245,40 +212,66 @@ export default function App() {
       <div id="retro_tech_axis_grid" className="absolute inset-0 bg-[linear-gradient(rgba(18,18,18,0.7)_1px,transparent_1px),linear-gradient(90deg,rgba(18,18,18,0.7)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none z-0" />
 
       {/* Floating Header */}
-      <header id="spatial_global_header" className="absolute top-0 inset-x-0 h-16 bg-neutral-950/45 border-b border-neutral-900/40 backdrop-blur-md px-6 md:px-12 flex items-center justify-between z-50">
-        <div className="flex items-center gap-2.5">
+      <header id="spatial_global_header" className="absolute top-0 inset-x-0 h-20 bg-neutral-950/45 border-b border-neutral-700 backdrop-blur-md px-6 md:px-12 flex items-center z-50">
+        <div className="relative z-10 flex items-center gap-2.5 shrink-0">
           <Logo />
           <div className="flex flex-col">
             <h1 className="text-xs font-mono font-bold tracking-widest text-white leading-none">
               G.CREATER
             </h1>
             <span className="text-[7.5px] font-mono tracking-widest text-cyan-400 mt-1 leading-none uppercase">
-              Retro Spatial Workshop
+              Header Invaders — Play Here
             </span>
           </div>
         </div>
 
+        <div className="flex-1 flex justify-center items-stretch min-w-0 h-full">
+          <HeaderInvaders sfxEnabled={sfxEnabled} bgmEnabled={bgmEnabled} />
+        </div>
+
         {/* Action controls & Audio Toggle */}
-        <div id="global_options_row" className="flex items-center gap-4">
+        <div id="global_options_row" className="relative z-10 flex items-center gap-2 shrink-0">
           <button
-            id="sound_toggle_btn"
+            id="sfx_toggle_btn"
             onClick={() => {
-              setSoundEnabled(!soundEnabled);
-              playRetroTone("click");
+              resumeAudioContext();
+              const next = !sfxEnabled;
+              setSfxEnabled(next);
+              setInvaderAudioOptions({ sfx: next });
+              if (next) playInvaderSfx("uiClick");
             }}
             className={`p-1.5 rounded bg-neutral-950 border border-neutral-800 transition-all ${
-              soundEnabled ? "text-cyan-400" : "text-neutral-600"
+              sfxEnabled ? "text-cyan-400" : "text-neutral-600"
             }`}
-            title="Toggle Synthesizer Feedback sound cues"
+            title="効果音 ON/OFF"
           >
-            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            {sfxEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          </button>
+
+          <button
+            id="bgm_toggle_btn"
+            onClick={() => {
+              resumeAudioContext();
+              const next = !bgmEnabled;
+              setBgmEnabled(next);
+              setInvaderAudioOptions({ bgm: next });
+              if (next) startInvaderBgm();
+              else stopInvaderBgm();
+              if (sfxEnabled) playInvaderSfx("uiClick");
+            }}
+            className={`p-1.5 rounded bg-neutral-950 border border-neutral-800 transition-all ${
+              bgmEnabled ? "text-amber-400" : "text-neutral-600"
+            }`}
+            title="BGM ON/OFF"
+          >
+            {bgmEnabled ? <Music className="w-4 h-4" /> : <Music2 className="w-4 h-4 opacity-50" />}
           </button>
 
           <button
             id="crt_toggle_btn"
             onClick={() => {
               setCrtEffect(!crtEffect);
-              playRetroTone("click");
+              playAppTone("click");
             }}
             className={`p-1.5 rounded bg-neutral-950 border border-neutral-800 transition-all ${
               crtEffect ? "text-magenta-500" : "text-neutral-600"
@@ -341,7 +334,7 @@ export default function App() {
           <SceneWanderers layerId={0} active={activeLayer === 0} />
           <div className="relative z-[1] grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-6xl w-full items-center">
             {/* Intro text */}
-            <div className="lg:col-span-5 flex flex-col gap-4 text-left">
+            <div data-wanderer-bite className="lg:col-span-5 flex flex-col gap-4 text-left">
               <div className="flex items-center gap-1.5 bg-neutral-950 border border-neutral-850 px-2.5 py-1 rounded-full w-fit">
                 <Sparkles className="w-3 h-3 text-cyan-400 animate-pulse" />
                 <span className="text-[8.5px] font-mono text-cyan-400 tracking-wider">NEXT-GEN QUANTUM WORKSHOP</span>
@@ -385,7 +378,7 @@ export default function App() {
                 onionSkinNext={onionSkinNext ? nextFramePixels : undefined}
                 onPixelClick={(r, c) => {
                   setActiveColor(activeFramePixels[r][c]);
-                  playRetroTone("click");
+                  playAppTone("click");
                 }}
               />
             </div>
@@ -410,7 +403,7 @@ export default function App() {
         >
           <SceneWanderers layerId={1} active={activeLayer === 1} />
           <div className="relative z-[1] max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            <div className="lg:col-span-5 flex flex-col gap-4 text-left">
+            <div data-wanderer-bite className="lg:col-span-5 flex flex-col gap-4 text-left">
               <div className="flex items-center gap-1.5 bg-neutral-950 border border-neutral-850 px-2.5 py-1 rounded-full w-fit">
                 <Paintbrush className="w-3 h-3 text-red-400" />
                 <span className="text-[8.5px] font-mono text-red-400 tracking-wider">LABORATORY COMPILATIONS</span>
@@ -461,7 +454,7 @@ export default function App() {
         >
           <SceneWanderers layerId={2} active={activeLayer === 2} />
           <div className="relative z-[1] max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            <div className="lg:col-span-5 flex flex-col gap-4 text-left">
+            <div data-wanderer-bite className="lg:col-span-5 flex flex-col gap-4 text-left">
               <div className="flex items-center gap-1.5 bg-neutral-950 border border-neutral-850 px-2.5 py-1 rounded-full w-fit">
                 <Palette className="w-3 h-3 text-emerald-400 animate-pulse" />
                 <span className="text-[8.5px] font-mono text-emerald-400 tracking-wider">QUANTIZED PALETTE SCHEMES</span>
@@ -517,7 +510,7 @@ export default function App() {
         >
           <SceneWanderers layerId={3} active={activeLayer === 3} />
           <div className="relative z-[1] max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            <div className="lg:col-span-5 flex flex-col gap-4 text-left">
+            <div data-wanderer-bite className="lg:col-span-5 flex flex-col gap-4 text-left">
               <div className="flex items-center gap-1.5 bg-neutral-950 border border-neutral-850 px-2.5 py-1 rounded-full w-fit">
                 <Clock className="w-3 h-3 text-amber-400 animate-pulse" />
                 <span className="text-[8.5px] font-mono text-amber-400 tracking-wider">CHRONO-COORDINATES FLOW</span>
@@ -567,7 +560,7 @@ export default function App() {
           <SceneWanderers layerId={4} active={activeLayer === 4} />
           <div className="relative z-[1] max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             {/* Explanations section */}
-            <div className="lg:col-span-5 flex flex-col gap-4 text-left">
+            <div data-wanderer-bite className="lg:col-span-5 flex flex-col gap-4 text-left">
               <div className="flex items-center gap-1.5 bg-neutral-950 border border-neutral-850 px-2.5 py-1 rounded-full w-fit">
                 <Play className="w-3 h-3 text-red-500 animate-pulse" />
                 <span className="text-[8.5px] font-mono text-red-400 tracking-wider">MOTION RENDER SCREEN</span>
@@ -587,7 +580,7 @@ export default function App() {
 
             {/* Simulated floating CRT TV screen console playing walk cycle loop! */}
             <div className="lg:col-span-7 flex flex-col items-center justify-center">
-              <div id="simulated_console_stage" className="relative w-full max-w-[340px] aspect-square bg-neutral-950 border border-neutral-800 rounded-xl p-4 flex flex-col items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.9)] backdrop-blur-md">
+              <div id="simulated_console_stage" data-scene-panel className="relative w-full max-w-[340px] aspect-square bg-neutral-950 border border-neutral-800 rounded-xl p-4 flex flex-col items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.9)] backdrop-blur-md">
                 <div className="absolute top-1.5 inset-x-0 flex justify-between px-3 text-[8.5px] font-mono text-neutral-600">
                   <span>CYBER MONITOR CHANNELS-09</span>
                   <span className="text-cyan-400 animate-pulse font-bold">● SIMULATOR PLAYING</span>
@@ -642,7 +635,7 @@ export default function App() {
         >
           <SceneWanderers layerId={5} active={activeLayer === 5} />
           <div className="relative z-[1] max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            <div className="lg:col-span-5 flex flex-col gap-4 text-left">
+            <div data-wanderer-bite className="lg:col-span-5 flex flex-col gap-4 text-left">
               <div className="flex items-center gap-1.5 bg-neutral-950 border border-neutral-850 px-2.5 py-1 rounded-full w-fit">
                 <Cpu className="w-3 h-3 text-indigo-400 animate-pulse" />
                 <span className="text-[8.5px] font-mono text-indigo-400 tracking-wider">NEURAL CO-PROCESSORS</span>
@@ -687,7 +680,7 @@ export default function App() {
         >
           <SceneWanderers layerId={6} active={activeLayer === 6} />
           <div className="relative z-[1] max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            <div className="lg:col-span-5 flex flex-col gap-4 text-left">
+            <div data-wanderer-bite className="lg:col-span-5 flex flex-col gap-4 text-left">
               <div className="flex items-center gap-1.5 bg-neutral-950 border border-neutral-850 px-2.5 py-1 rounded-full w-fit">
                 <Download className="w-3 h-3 text-cyan-400" />
                 <span className="text-[8.5px] font-mono text-cyan-400 tracking-wider">COMPILED QUANTIZED OUTPUT</span>
@@ -730,7 +723,7 @@ export default function App() {
         >
           <SceneWanderers layerId={7} active={activeLayer === 7} />
           <div className="relative z-[1] max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            <div className="lg:col-span-5 flex flex-col gap-4 text-left">
+            <div data-wanderer-bite className="lg:col-span-5 flex flex-col gap-4 text-left">
               <div className="flex items-center gap-1.5 bg-neutral-950 border border-neutral-850 px-2.5 py-1 rounded-full w-fit">
                 <Grid className="w-3 h-3 text-blue-400" />
                 <span className="text-[8.5px] font-mono text-blue-400 tracking-wider">BLUEPRINT GALLERY CLONES</span>
@@ -746,7 +739,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="lg:col-span-7 flex flex-col gap-4 bg-neutral-900/40 border border-neutral-850 p-6 rounded-xl backdrop-blur-md w-full">
+            <div data-scene-panel className="lg:col-span-7 flex flex-col gap-4 bg-neutral-900/40 border border-neutral-850 p-6 rounded-xl backdrop-blur-md w-full">
               <span className="text-[10px] font-mono font-bold tracking-widest text-neutral-400 border-b border-neutral-800 pb-2 flex items-center gap-1">
                 <Disc className="w-3.5 h-3.5 text-blue-400 animate-spin" /> LOADABLE RETRO BLUEPRINTS
               </span>

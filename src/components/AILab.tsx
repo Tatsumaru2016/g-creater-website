@@ -167,7 +167,7 @@ export default function AILab({
   };
 
   return (
-    <div id="ai_lab_panel" className="flex flex-col gap-5 w-full bg-neutral-900/40 border border-neutral-800 p-5 rounded-xl backdrop-blur-md">
+    <div id="ai_lab_panel" data-scene-panel className="flex flex-col gap-5 w-full bg-neutral-900/40 border border-neutral-800 p-5 rounded-xl backdrop-blur-md">
       {/* Header */}
       <div id="ai_lab_header" className="flex items-center justify-between border-b border-neutral-800 pb-3">
         <div className="flex items-center gap-2">

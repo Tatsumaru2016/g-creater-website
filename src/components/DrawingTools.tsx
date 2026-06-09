@@ -76,7 +76,7 @@ export default function DrawingTools({
   ];
 
   return (
-    <div id="drawing_tools_panel" className="flex flex-col gap-5 w-full bg-neutral-900/40 border border-neutral-800 p-5 rounded-xl backdrop-blur-md">
+    <div id="drawing_tools_panel" data-scene-panel className="flex flex-col gap-5 w-full bg-neutral-900/40 border border-neutral-800 p-5 rounded-xl backdrop-blur-md">
       {/* Tools Section */}
       <div id="drawing_tools_section" className="flex flex-col gap-3">
         <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-widest">

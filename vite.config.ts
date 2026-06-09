@@ -3,8 +3,13 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
-export default defineConfig(() => {
+const GH_PAGES_BASE = '/g-creater-website/';
+
+export default defineConfig(({ mode }) => {
+  const isPages = mode === 'pages' || process.env.GITHUB_PAGES === 'true';
+
   return {
+    base: isPages ? GH_PAGES_BASE : '/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

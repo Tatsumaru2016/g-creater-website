@@ -92,7 +92,7 @@ export default function ExportPanel({ frames, palette, gridSize }: ExportPanelPr
   };
 
   return (
-    <div id="export_panel_widget" className="flex flex-col gap-5 w-full bg-neutral-900/40 border border-neutral-800 p-5 rounded-xl backdrop-blur-md">
+    <div id="export_panel_widget" data-scene-panel className="flex flex-col gap-5 w-full bg-neutral-900/40 border border-neutral-800 p-5 rounded-xl backdrop-blur-md">
       {/* Header */}
       <div id="export_panel_header" className="flex items-center justify-between border-b border-neutral-800 pb-3">
         <div className="flex items-center gap-2">
