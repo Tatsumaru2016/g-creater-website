@@ -24,6 +24,16 @@ const ko: TranslationDict = {
     unsaved: "미저장",
     default: "기본값",
     previewLocale: "이 언어로 미리보기",
+    fieldCount: "항목",
+    noFields: "이 탭에 해당 항목이 없습니다",
+    tabs: {
+      common: "공통",
+      scene0: "씬1 · 캔버스",
+      scene1: "씬2 · 대칭 그리기",
+      scene2: "씬3 · 팔레트",
+      scene3: "씬4 · 타임라인",
+      scene4: "씬5 ·보내기",
+    },
   },
   common: {
     clear: "지우기",

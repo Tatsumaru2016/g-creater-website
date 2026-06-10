@@ -25,6 +25,16 @@ const ja: TranslationDict = {
     unsaved: "未保存",
     default: "初期値",
     previewLocale: "この言語でプレビュー",
+    fieldCount: "項目",
+    noFields: "該当する項目がありません",
+    tabs: {
+      common: "共通",
+      scene0: "シーン1 · キャンバス",
+      scene1: "シーン2 · 対称描画",
+      scene2: "シーン3 · パレット",
+      scene3: "シーン4 · タイムライン",
+      scene4: "シーン5 · エクスポート",
+    },
   },
   common: {
     clear: "クリア",

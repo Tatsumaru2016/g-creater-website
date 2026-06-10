@@ -24,6 +24,16 @@ const zh: TranslationDict = {
     unsaved: "未保存",
     default: "默认值",
     previewLocale: "以此语言预览",
+    fieldCount: "项",
+    noFields: "此标签下没有匹配项",
+    tabs: {
+      common: "通用",
+      scene0: "场景1 · 画布",
+      scene1: "场景2 · 对称绘制",
+      scene2: "场景3 · 调色板",
+      scene3: "场景4 · 时间轴",
+      scene4: "场景5 · 导出",
+    },
   },
   common: {
     clear: "清除",

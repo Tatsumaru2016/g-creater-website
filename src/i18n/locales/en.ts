@@ -25,6 +25,16 @@ const en: TranslationDict = {
     unsaved: "Unsaved",
     default: "Default",
     previewLocale: "Preview in this language",
+    fieldCount: "fields",
+    noFields: "No matching fields in this tab",
+    tabs: {
+      common: "Common",
+      scene0: "Scene 1 · Canvas",
+      scene1: "Scene 2 · Symmetry",
+      scene2: "Scene 3 · Palette",
+      scene3: "Scene 4 · Timeline",
+      scene4: "Scene 5 · Export",
+    },
   },
   common: {
     clear: "Clear",

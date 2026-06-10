@@ -185,19 +185,27 @@ function aliveInvaderCount(invaders: InvaderUnit[]): number {
   return invaders.reduce((n, i) => n + (i.alive ? 1 : 0), 0);
 }
 
-function invaderHitsPlayer(
+function lowestAliveInvaderRow(invaders: InvaderUnit[]): number {
+  let row = 0;
+  for (const inv of invaders) {
+    if (inv.alive) row = Math.max(row, inv.row);
+  }
+  return row;
+}
+
+/** 最下段のインベーダーがプレイヤー列に届く formY の上限 */
+function invasionLimitFormY(invaders: InvaderUnit[]): number {
+  const row = lowestAliveInvaderRow(invaders);
+  return PLAYER_Y - row * INVADER_SPACING_Y - INVADER_H;
+}
+
+function invadersReachedInvasionLine(
   invaders: InvaderUnit[],
-  formX: number,
-  formY: number,
-  playerX: number
+  formY: number
 ): boolean {
   for (const inv of invaders) {
     if (!inv.alive) continue;
-    const ix = formX + inv.col * INVADER_SPACING_X;
-    const iy = formY + inv.row * INVADER_SPACING_Y;
-    if (
-      rectHit(ix, iy, INVADER_W, INVADER_H, playerX, PLAYER_Y, PLAYER_W, PLAYER_H)
-    ) {
+    if (formY + inv.row * INVADER_SPACING_Y + INVADER_H >= PLAYER_Y) {
       return true;
     }
   }
@@ -483,11 +491,21 @@ export default function HeaderInvaders({ soundEnabled }: HeaderInvadersProps) {
         const minX = FORM_SIDE_PADDING;
         const maxX = arenaW - FORM_SIDE_PADDING - FORMATION_W;
         const nextX = formXRef.current + formDirRef.current * MARCH_STEP;
+        let reachedInvasion = false;
 
         if (nextX < minX || nextX > maxX) {
           formXRef.current = nextX < minX ? minX : maxX;
           formDirRef.current = (formDirRef.current === 1 ? -1 : 1) as -1 | 1;
-          formYRef.current += INVADER_SPACING_Y;
+          const invasionLimit = invasionLimitFormY(invadersRef.current);
+          const nextFormY = Math.min(
+            formYRef.current + INVADER_SPACING_Y,
+            invasionLimit
+          );
+          formYRef.current = nextFormY;
+          reachedInvasion = invadersReachedInvasionLine(
+            invadersRef.current,
+            formYRef.current
+          );
           setFormX(formXRef.current);
           setFormDir(formDirRef.current);
           setFormY(formYRef.current);
@@ -498,6 +516,12 @@ export default function HeaderInvaders({ soundEnabled }: HeaderInvadersProps) {
 
         setMarchFrame((f) => (f + 1) % INVADER_FRAMES.length);
         playInvaderSfx("march");
+
+        if (reachedInvasion) {
+          playInvaderSfx("playerExplosion");
+          scheduleGameOver();
+          return;
+        }
       }
 
       if (enemyFireTimerRef.current <= 0 && aliveN > 0) {
@@ -686,11 +710,9 @@ export default function HeaderInvaders({ soundEnabled }: HeaderInvadersProps) {
       }
 
       if (
-        invaderHitsPlayer(
+        invadersReachedInvasionLine(
           invadersRef.current,
-          formXRef.current,
-          formYRef.current,
-          playerXRef.current
+          formYRef.current
         )
       ) {
         playInvaderSfx("playerExplosion");
