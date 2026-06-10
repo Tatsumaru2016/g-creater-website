@@ -2,6 +2,9 @@
 
 const pointerListeners = new Set<(clientX: number) => void>();
 const frameListeners = new Set<(clientX: number) => void>();
+const cursorFrameListeners = new Set<
+  (clientX: number, clientY: number) => void
+>();
 const fireListeners = new Set<() => void>();
 let installed = false;
 let lastClientX: number | null = null;
@@ -42,12 +45,6 @@ export function isMinigameKeyboardHeld(): boolean {
   return keyLeft || keyRight;
 }
 
-function shouldAcceptPointer(clientX: number, clientY: number): boolean {
-  updateCursorInViewport(clientX, clientY);
-  refreshFocusState();
-  return isMinigamePointerActive();
-}
-
 function applyKeyboardCursorStep(dt: number) {
   if (!keyLeft && !keyRight) return;
   refreshFocusState();
@@ -63,20 +60,41 @@ function applyKeyboardCursorStep(dt: number) {
   }
 }
 
+function hasFrameSubscribers(): boolean {
+  return frameListeners.size > 0 || cursorFrameListeners.size > 0;
+}
+
 function runFrameLoop() {
-  if (frameListeners.size === 0) {
+  if (!hasFrameSubscribers()) {
     frameLoopActive = false;
     lastFrameTime = 0;
     return;
   }
   frameLoopActive = true;
   requestAnimationFrame((now) => {
+    if (!hasFrameSubscribers()) {
+      frameLoopActive = false;
+      lastFrameTime = 0;
+      return;
+    }
+
+    if (document.hidden) {
+      runFrameLoop();
+      return;
+    }
+
     const dt = lastFrameTime
       ? Math.min(0.05, (now - lastFrameTime) / 1000)
       : 1 / 60;
     lastFrameTime = now;
 
     applyKeyboardCursorStep(dt);
+
+    if (lastClientX !== null && lastClientY !== null) {
+      cursorFrameListeners.forEach((cb) =>
+        cb(lastClientX as number, lastClientY as number)
+      );
+    }
 
     if (lastClientX !== null) {
       frameListeners.forEach((cb) => cb(lastClientX as number));
@@ -86,7 +104,7 @@ function runFrameLoop() {
 }
 
 function ensureFrameLoop() {
-  if (!frameLoopActive && frameListeners.size > 0) {
+  if (!frameLoopActive && hasFrameSubscribers()) {
     runFrameLoop();
   }
 }
@@ -94,12 +112,13 @@ function ensureFrameLoop() {
 function emitPointer(clientX: number, clientY?: number) {
   if (clientY !== undefined) {
     lastClientY = clientY;
-    if (!shouldAcceptPointer(clientX, clientY)) return;
-  } else {
-    refreshFocusState();
-    if (!isMinigamePointerActive()) return;
+    updateCursorInViewport(clientX, clientY);
   }
   lastClientX = clientX;
+
+  refreshFocusState();
+  if (!isMinigamePointerActive()) return;
+
   pointerListeners.forEach((cb) => cb(clientX));
 }
 
@@ -114,11 +133,8 @@ function installGlobalMinigameInput() {
     cursorInViewport = true;
   }
 
-  const onMouse = (e: MouseEvent) => emitPointer(e.clientX, e.clientY);
   const onPointer = (e: PointerEvent) => {
-    if (e.pointerType === "mouse" || e.pointerType === "pen" || e.pointerType === "") {
-      emitPointer(e.clientX, e.clientY);
-    }
+    emitPointer(e.clientX, e.clientY);
   };
   const onTouch = (e: TouchEvent) => {
     const t = e.touches[0];
@@ -127,19 +143,25 @@ function installGlobalMinigameInput() {
 
   const captureOpts = { passive: true, capture: true } as const;
 
-  document.addEventListener("mousemove", onMouse, captureOpts);
-  document.addEventListener("mousedown", onMouse, captureOpts);
-  document.addEventListener("pointermove", onPointer, captureOpts);
-  document.addEventListener("pointerdown", onPointer, captureOpts);
+  window.addEventListener("pointermove", onPointer, captureOpts);
+  window.addEventListener("pointerdown", onPointer, captureOpts);
   document.addEventListener("touchmove", onTouch, captureOpts);
   document.addEventListener("touchstart", onTouch, captureOpts);
 
-  document.addEventListener("mouseleave", () => {
-    cursorInViewport = false;
-  });
-  document.addEventListener("mouseenter", () => {
-    cursorInViewport = true;
-  });
+  document.addEventListener(
+    "mouseleave",
+    () => {
+      cursorInViewport = false;
+    },
+    captureOpts
+  );
+  document.addEventListener(
+    "mouseenter",
+    () => {
+      cursorInViewport = true;
+    },
+    captureOpts
+  );
 
   window.addEventListener("focus", refreshFocusState);
   window.addEventListener("blur", () => {
@@ -178,6 +200,8 @@ function installGlobalMinigameInput() {
     keyLeft = false;
     keyRight = false;
   });
+
+  ensureFrameLoop();
 }
 
 /** App のカスタムカーソル等からも同じ座標を流す */
@@ -215,7 +239,23 @@ export function subscribeMinigamePointerFrame(
   if (lastClientX !== null) cb(lastClientX);
   return () => {
     frameListeners.delete(cb);
-    if (frameListeners.size === 0) frameLoopActive = false;
+    if (!hasFrameSubscribers()) frameLoopActive = false;
+  };
+}
+
+/** カスタムカーソル用 — 1フレーム1回だけ最新座標を配信 */
+export function subscribeCursorFrame(
+  cb: (clientX: number, clientY: number) => void
+): () => void {
+  installGlobalMinigameInput();
+  cursorFrameListeners.add(cb);
+  ensureFrameLoop();
+  if (lastClientX !== null && lastClientY !== null) {
+    cb(lastClientX, lastClientY);
+  }
+  return () => {
+    cursorFrameListeners.delete(cb);
+    if (!hasFrameSubscribers()) frameLoopActive = false;
   };
 }
 

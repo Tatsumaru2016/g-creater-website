@@ -3,6 +3,7 @@ export {
   I18nProvider,
   LanguageSelector,
   useI18n,
+  type SaveSiteCopyResult,
 } from "./context";
 export { translations } from "./locales";
 export {

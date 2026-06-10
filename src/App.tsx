@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Background3D } from './components/Background3D';
 import {
   RoamingCharacters,
@@ -25,14 +25,33 @@ import HeaderArkanoid from './components/HeaderArkanoid';
 import { IceClimberWanderer } from './components/IceClimberWanderer';
 import { GundamZakuDuel } from './components/GundamZakuDuel';
 import { setInvaderSoundEnabled } from './audio/invaderAudio';
+import { PixelCharacter } from './types';
 import {
   getLastMinigameClientY,
   isMinigameKeyboardHeld,
   reportMinigameClientX,
   subscribeMinigamePointerFrame,
 } from './utils/headerMinigameInput';
-import { PixelCharacter } from './types';
+
+const CUSTOM_CURSOR_HALF = 10;
+const SCENE_PANEL_SELECTORS = [
+  '#main-pixel-editor',
+  '#scene-panel-1',
+  '#scene-panel-2',
+  '#scene-panel-3',
+  '#scene-panel-4',
+] as const;
+const SCENE_DUEL_EDGES = [0, 1, 2, 3, 0] as const;
+
+function sceneNear(progress: number, index: number): boolean {
+  return Math.abs(progress - index) < 1.15;
+}
+
+function nearestScene(progress: number): number {
+  return Math.max(0, Math.min(4, Math.round(progress)));
+}
 import { LanguageSelector, useI18n } from './i18n';
+import { ContentAdmin } from './components/ContentAdmin';
 import { 
   Compass, 
   Sparkles, 
@@ -41,7 +60,8 @@ import {
   Volume2,
   VolumeX,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  FileText,
 } from 'lucide-react';
 
 const SCENE_IDS = [0, 1, 2, 3, 4] as const;
@@ -71,19 +91,19 @@ export default function App() {
       "やぁっ！",
     ];
   const [scrollIndex, setScrollIndex] = useState(0);
-  const [scrollProgress, setScrollProgress] = useState(0); // smooth real-time progress
+  const [scrollProgressSnap, setScrollProgressSnap] = useState(0);
+  const scrollProgressRef = useRef(0);
+  const sceneShellRefs = useRef<(HTMLDivElement | null)[]>([]);
+
   // Character system
   const [characters, setCharacters] = useState<PixelCharacter[]>([]);
-  const [lastCharacterUpdate, setLastCharacterUpdate] = useState<number>(0);
 
   // UI state
   const customCursorRef = useRef<HTMLDivElement>(null);
-  const pointerYRef = useRef(
-    typeof window !== 'undefined' ? window.innerHeight * 0.5 : 0
-  );
   const [isMuted, setIsMuted] = useState(true);
   const [charactersVisible, setCharactersVisible] = useState(readCharactersVisible);
   const [hoveredElement, setHoveredElement] = useState<string | null>(null);
+  const [contentAdminOpen, setContentAdminOpen] = useState(false);
 
   // References for mobile swipes
   const touchStartY = useRef<number | null>(null);
@@ -109,24 +129,54 @@ export default function App() {
     return () => clearInterval(handle);
   }, [charactersVisible, characterDialogues, characterHopLine]);
 
-  // Physics animation loop for smooth 3D scroll zoom progress interpolation
-  useEffect(() => {
-    let animId: number;
-    const lerpSpeed = 0.085; // Momentum factor
+  const applySceneTransforms = (progress: number) => {
+    sceneShellRefs.current.forEach((el, i) => {
+      if (!el) return;
+      const dist = Math.abs(progress - i);
+      el.style.transform = `translateZ(${(i - progress) * 750}px) translateY(${(i - progress) * -110}px) rotateX(${(i - progress) * -3}deg)`;
+      el.style.opacity = String(Math.max(0, 1 - dist));
+      el.style.visibility = dist > 1.2 ? 'hidden' : 'visible';
+      el.style.zIndex = String(Math.round(10 - dist * 2));
+      el.style.pointerEvents = dist < 0.65 ? 'auto' : 'none';
+    });
+  };
 
-    const interpolateScroll = () => {
-      setScrollProgress((prev) => {
-        const diff = scrollIndex - prev;
-        if (Math.abs(diff) < 0.001) {
-          return scrollIndex;
-        }
-        return prev + diff * lerpSpeed;
-      });
-      animId = requestAnimationFrame(interpolateScroll);
+  useLayoutEffect(() => {
+    applySceneTransforms(scrollProgressRef.current);
+  }, []);
+
+  // 3D スクロールは DOM 直更新（React 再描画を抑制）
+  useEffect(() => {
+    let animId: number | null = null;
+    let lastSnapAt = 0;
+    const lerpSpeed = 0.085;
+
+    const tick = () => {
+      let keepGoing = false;
+      const prev = scrollProgressRef.current;
+      const diff = scrollIndex - prev;
+      if (Math.abs(diff) >= 0.001) {
+        scrollProgressRef.current = prev + diff * lerpSpeed;
+        keepGoing = true;
+      } else {
+        scrollProgressRef.current = scrollIndex;
+      }
+
+      applySceneTransforms(scrollProgressRef.current);
+
+      const now = performance.now();
+      if (now - lastSnapAt > 120) {
+        setScrollProgressSnap(scrollProgressRef.current);
+        lastSnapAt = now;
+      }
+
+      animId = keepGoing ? requestAnimationFrame(tick) : null;
     };
 
-    animId = requestAnimationFrame(interpolateScroll);
-    return () => cancelAnimationFrame(animId);
+    animId = requestAnimationFrame(tick);
+    return () => {
+      if (animId !== null) cancelAnimationFrame(animId);
+    };
   }, [scrollIndex]);
 
   // Throttled Scroll Engine - Prevents fast jumps between different tabs
@@ -186,34 +236,30 @@ export default function App() {
     };
   }, []);
 
-  // Custom cursor: DOM のみ更新（React 再描画なし）。capture でページ全体のポインタを拾う
+  // カスタムカーソル: ポインター移動で即時描画（ミニゲーム座標も同期）
   useEffect(() => {
-    const handlePointer = (e: MouseEvent | PointerEvent) => {
-      pointerYRef.current = e.clientY;
+    const paintCursor = (x: number, y: number) => {
+      const el = customCursorRef.current;
+      if (!el) return;
+      el.style.transform = `translate3d(${x - CUSTOM_CURSOR_HALF}px, ${y - CUSTOM_CURSOR_HALF}px, 0)`;
+    };
+
+    const onPointer = (e: PointerEvent) => {
       reportMinigameClientX(e.clientX, e.clientY);
-      const el = customCursorRef.current;
-      if (!el) return;
-      el.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%)`;
+      paintCursor(e.clientX, e.clientY);
     };
 
-    const opts = { passive: true, capture: true } as const;
-    document.addEventListener('pointermove', handlePointer, opts);
-    document.addEventListener('mousemove', handlePointer, opts);
-    return () => {
-      document.removeEventListener('pointermove', handlePointer, opts);
-      document.removeEventListener('mousemove', handlePointer, opts);
-    };
-  }, []);
-
-  // 矢印キーでミニゲーム用カーソル X を動かしたとき、見た目のカーソルも追従
-  useEffect(() => {
-    return subscribeMinigamePointerFrame((clientX) => {
+    window.addEventListener('pointermove', onPointer, { passive: true });
+    const unsubFrame = subscribeMinigamePointerFrame((x) => {
       if (!isMinigameKeyboardHeld()) return;
-      const el = customCursorRef.current;
-      if (!el) return;
-      const y = getLastMinigameClientY() ?? pointerYRef.current;
-      el.style.transform = `translate3d(${clientX}px, ${y}px, 0) translate(-50%, -50%)`;
+      const y = getLastMinigameClientY() ?? window.innerHeight * 0.5;
+      paintCursor(x, y);
     });
+
+    return () => {
+      window.removeEventListener('pointermove', onPointer);
+      unsubFrame();
+    };
   }, []);
 
   // Action callback when character is clicked!
@@ -258,7 +304,7 @@ export default function App() {
     <div className="relative min-h-screen bg-[#07070A] text-white selection:bg-[#00F5FF]/30 select-none overflow-hidden font-sans cursor-none">
       
       {/* 3D Cosmic starry Canvas background */}
-      <Background3D scrollIndex={scrollIndex} scrollProgress={scrollProgress} />
+      <Background3D scrollIndex={scrollIndex} scrollProgress={scrollProgressSnap} />
 
       {/* Grid Phosphor Scanline Overlay */}
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_40%,_rgba(0,0,0,0.45)_95%)] pointer-events-none z-10" />
@@ -266,8 +312,8 @@ export default function App() {
       {/* CUSTOM GLOWING RETRO CURSOR */}
       <div
         ref={customCursorRef}
-        className="fixed left-0 top-0 w-5 h-5 border-2 border-cyan-400 rounded-sm pointer-events-none z-[100] mix-blend-screen hidden md:block will-change-transform shadow-[0_0_12px_rgba(0,245,255,0.6)]"
-        style={{ transform: 'translate3d(-100px, -100px, 0) translate(-50%, -50%)' }}
+        className="fixed left-0 top-0 w-5 h-5 border-2 border-cyan-400 rounded-sm pointer-events-none z-[100] hidden md:block will-change-transform shadow-[0_0_12px_rgba(0,245,255,0.6)]"
+        style={{ transform: 'translate3d(-100px, -100px, 0)' }}
       >
         <div className="absolute inset-2 bg-pink-500/80 rounded-sm" />
       </div>
@@ -303,6 +349,16 @@ export default function App() {
         {/* Global Action items */}
         <div className="flex items-center gap-4">
           <LanguageSelector />
+          <button
+            id="g-btn-content-admin"
+            type="button"
+            onClick={() => setContentAdminOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 border border-amber-500/30 hover:border-amber-500/60 bg-amber-500/5 hover:bg-amber-500/10 text-amber-300 text-[10px] font-mono rounded-lg transition-all cursor-pointer"
+            title={t("admin.open")}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{t("admin.open")}</span>
+          </button>
           <button
             id="g-btn-characters"
             onClick={toggleCharactersVisible}
@@ -343,6 +399,8 @@ export default function App() {
         </div>
       </header>
 
+      <ContentAdmin open={contentAdminOpen} onClose={() => setContentAdminOpen(false)} />
+
       {/* タイトル下部・左：ミニインベーダー + アルカノイド */}
       <div
         className="fixed top-[3.65rem] left-4 sm:left-6 z-[55] flex flex-wrap gap-2 pointer-events-auto max-w-[calc(100vw-2rem)]"
@@ -376,13 +434,8 @@ export default function App() {
         >
           {/* SCENE 1: Hero canvas */}
           <div 
-            className="absolute inset-0 flex flex-col justify-center items-center px-4 transition-all duration-700 ease-out pointer-events-auto"
-            style={{
-              transform: `translateZ(${(0 - scrollProgress) * 750}px) translateY(${(0 - scrollProgress) * -110}px) rotateX(${(0 - scrollProgress) * -3}deg)`,
-              opacity: Math.max(0, 1 - Math.abs(scrollProgress - 0)),
-              visibility: Math.abs(scrollProgress - 0) > 1.2 ? 'hidden' : 'visible',
-              zIndex: Math.round(10 - Math.abs(scrollProgress - 0) * 2),
-            }}
+            ref={(el) => { sceneShellRefs.current[0] = el; }}
+            className="absolute inset-0 flex flex-col justify-center items-center px-4 will-change-transform"
           >
             <div id="scene-title-hero" data-wanderer-bite className="text-center mb-5 max-w-2xl relative">
               <span id="scene-badge-0" className="relative z-[53] text-[10px] font-mono uppercase bg-cyan-500/10 border border-[#00F5FF]/30 text-[#00F5FF] px-2.5 py-0.5 rounded-full tracking-widest inline-block mb-3 animate-pulse">
@@ -399,18 +452,13 @@ export default function App() {
               </p>
             </div>
 
-            <PixelEditor />
+            {sceneNear(scrollProgressSnap, 0) && <PixelEditor />}
           </div>
 
           {/* SCENE 2: Symmetry Tools */}
           <div 
-            className="absolute inset-0 flex flex-col justify-center items-center px-4 transition-all duration-700 ease-out pointer-events-auto"
-            style={{
-              transform: `translateZ(${(1 - scrollProgress) * 750}px) translateY(${(1 - scrollProgress) * -110}px) rotateX(${(1 - scrollProgress) * -3}deg)`,
-              opacity: Math.max(0, 1 - Math.abs(scrollProgress - 1)),
-              visibility: Math.abs(scrollProgress - 1) > 1.2 ? 'hidden' : 'visible',
-              zIndex: Math.round(10 - Math.abs(scrollProgress - 1) * 2),
-            }}
+            ref={(el) => { sceneShellRefs.current[1] = el; }}
+            className="absolute inset-0 flex flex-col justify-center items-center px-4 will-change-transform"
           >
             <div data-wanderer-bite className="text-center mb-4 max-w-2xl">
               <span id="scene-badge-1" className="text-[10px] font-mono uppercase bg-purple-500/10 border border-purple-500/30 text-purple-300 px-2.5 py-0.5 rounded-full tracking-widest inline-block mb-2">
@@ -421,18 +469,13 @@ export default function App() {
               </h2>
             </div>
 
-            <DrawingTools />
+            {sceneNear(scrollProgressSnap, 1) && <DrawingTools />}
           </div>
 
           {/* SCENE 3: Palette & Layers */}
           <div 
-            className="absolute inset-0 flex flex-col justify-center items-center px-4 transition-all duration-700 ease-out pointer-events-auto"
-            style={{
-              transform: `translateZ(${(2 - scrollProgress) * 750}px) translateY(${(2 - scrollProgress) * -110}px) rotateX(${(2 - scrollProgress) * -3}deg)`,
-              opacity: Math.max(0, 1 - Math.abs(scrollProgress - 2)),
-              visibility: Math.abs(scrollProgress - 2) > 1.2 ? 'hidden' : 'visible',
-              zIndex: Math.round(10 - Math.abs(scrollProgress - 2) * 2),
-            }}
+            ref={(el) => { sceneShellRefs.current[2] = el; }}
+            className="absolute inset-0 flex flex-col justify-center items-center px-4 will-change-transform"
           >
             <div data-wanderer-bite className="text-center mb-4 max-w-2xl">
               <span id="scene-badge-2" className="text-[10px] font-mono uppercase bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-2.5 py-0.5 rounded-full tracking-widest inline-block mb-2">
@@ -443,18 +486,13 @@ export default function App() {
               </h2>
             </div>
 
-            <PaletteLayers />
+            {sceneNear(scrollProgressSnap, 2) && <PaletteLayers />}
           </div>
 
           {/* SCENE 4: Timeline */}
           <div 
-            className="absolute inset-0 flex flex-col justify-center items-center px-4 transition-all duration-700 ease-out pointer-events-auto"
-            style={{
-              transform: `translateZ(${(3 - scrollProgress) * 750}px) translateY(${(3 - scrollProgress) * -110}px) rotateX(${(3 - scrollProgress) * -3}deg)`,
-              opacity: Math.max(0, 1 - Math.abs(scrollProgress - 3)),
-              visibility: Math.abs(scrollProgress - 3) > 1.2 ? 'hidden' : 'visible',
-              zIndex: Math.round(10 - Math.abs(scrollProgress - 3) * 2),
-            }}
+            ref={(el) => { sceneShellRefs.current[3] = el; }}
+            className="absolute inset-0 flex flex-col justify-center items-center px-4 will-change-transform"
           >
             <div data-wanderer-bite className="text-center mb-4 max-w-2xl">
               <span id="scene-badge-3" className="text-[10px] font-mono uppercase bg-pink-500/10 border border-pink-500/30 text-pink-300 px-2.5 py-0.5 rounded-full tracking-widest inline-block mb-2">
@@ -465,18 +503,13 @@ export default function App() {
               </h2>
             </div>
 
-            <AnimationTimeline />
+            {sceneNear(scrollProgressSnap, 3) && <AnimationTimeline />}
           </div>
 
           {/* SCENE 5: Export & Neural Studio */}
           <div 
-            className="absolute inset-0 flex flex-col justify-center items-center px-4 transition-all duration-700 ease-out pointer-events-auto"
-            style={{
-              transform: `translateZ(${(4 - scrollProgress) * 750}px) translateY(${(4 - scrollProgress) * -110}px) rotateX(${(4 - scrollProgress) * -3}deg)`,
-              opacity: Math.max(0, 1 - Math.abs(scrollProgress - 4)),
-              visibility: Math.abs(scrollProgress - 4) > 1.2 ? 'hidden' : 'visible',
-              zIndex: Math.round(10 - Math.abs(scrollProgress - 4) * 2),
-            }}
+            ref={(el) => { sceneShellRefs.current[4] = el; }}
+            className="absolute inset-0 flex flex-col justify-center items-center px-4 will-change-transform"
           >
             <div data-wanderer-bite className="text-center mb-4 max-w-2xl">
               <span id="scene-badge-4" className="text-[10px] font-mono uppercase bg-cyan-500/10 border border-[#00F5FF]/30 text-cyan-400 px-2.5 py-0.5 rounded-full tracking-widest inline-block mb-2">
@@ -487,7 +520,7 @@ export default function App() {
               </h2>
             </div>
 
-            <ExportAI />
+            {sceneNear(scrollProgressSnap, 4) && <ExportAI />}
           </div>
 
         </div>
@@ -499,64 +532,31 @@ export default function App() {
               onTriggerAction={handleCharacterAction}
             />
 
-            <SlimeLinkHunt
-              defeatedLines={slimeDefeatedLines}
-              linkLines={linkBattleLines}
-            />
+            {sceneNear(scrollProgressSnap, nearestScene(scrollProgressSnap)) && (
+              <>
+                <SlimeLinkHunt
+                  defeatedLines={slimeDefeatedLines}
+                  linkLines={linkBattleLines}
+                />
+                <GalagaUfoDogfight />
+              </>
+            )}
 
-            <GalagaUfoDogfight />
-
-            <IceClimberWanderer soundEnabled={!isMuted} scrollProgress={scrollProgress} />
+            <IceClimberWanderer soundEnabled={!isMuted} scrollProgress={scrollProgressSnap} />
 
             <GundamZakuDuel />
 
-            <SceneTitleMarioAct scrollProgress={scrollProgress} />
+            <SceneTitleMarioAct scrollProgress={scrollProgressSnap} />
 
             <ScenePanelPacChase
-              panelSelector="#main-pixel-editor"
-              active={Math.abs(scrollProgress - 0) < 0.55}
-            />
-            <ScenePanelPacChase
-              panelSelector="#scene-panel-1"
-              active={Math.abs(scrollProgress - 1) < 0.55}
-            />
-            <ScenePanelPacChase
-              panelSelector="#scene-panel-2"
-              active={Math.abs(scrollProgress - 2) < 0.55}
-            />
-            <ScenePanelPacChase
-              panelSelector="#scene-panel-3"
-              active={Math.abs(scrollProgress - 3) < 0.55}
-            />
-            <ScenePanelPacChase
-              panelSelector="#scene-panel-4"
-              active={Math.abs(scrollProgress - 4) < 0.55}
+              panelSelector={SCENE_PANEL_SELECTORS[nearestScene(scrollProgressSnap)]}
+              active={Math.abs(scrollProgressSnap - nearestScene(scrollProgressSnap)) < 0.55}
             />
 
             <PanelBorderDqDuel
-              panelSelector="#main-pixel-editor"
-              active={Math.abs(scrollProgress - 0) < 0.55}
-              duelEdge={0}
-            />
-            <PanelBorderDqDuel
-              panelSelector="#scene-panel-1"
-              active={Math.abs(scrollProgress - 1) < 0.55}
-              duelEdge={1}
-            />
-            <PanelBorderDqDuel
-              panelSelector="#scene-panel-2"
-              active={Math.abs(scrollProgress - 2) < 0.55}
-              duelEdge={2}
-            />
-            <PanelBorderDqDuel
-              panelSelector="#scene-panel-3"
-              active={Math.abs(scrollProgress - 3) < 0.55}
-              duelEdge={3}
-            />
-            <PanelBorderDqDuel
-              panelSelector="#scene-panel-4"
-              active={Math.abs(scrollProgress - 4) < 0.55}
-              duelEdge={0}
+              panelSelector={SCENE_PANEL_SELECTORS[nearestScene(scrollProgressSnap)]}
+              active={Math.abs(scrollProgressSnap - nearestScene(scrollProgressSnap)) < 0.55}
+              duelEdge={SCENE_DUEL_EDGES[nearestScene(scrollProgressSnap)]}
             />
           </>
         )}

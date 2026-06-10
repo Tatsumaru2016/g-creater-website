@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import { readSiteCopy, writeSiteCopy } from "./server/contentStore.ts";
 
 dotenv.config();
 
@@ -343,6 +344,34 @@ Suggest a fantastic evocative retro title and description of this design mood.`,
       description: "Fallback system colors activated because of connection timeout.",
       isDemoMode: true,
     });
+  }
+});
+
+app.get("/api/site-copy", async (_req, res) => {
+  try {
+    const copy = await readSiteCopy();
+    return res.json({ copy });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return res.status(500).json({ error: message });
+  }
+});
+
+app.put("/api/site-copy", async (req, res) => {
+  try {
+    const token = process.env.ADMIN_TOKEN;
+    if (token && req.headers["x-admin-token"] !== token) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const copy = req.body?.copy;
+    if (!copy || typeof copy !== "object") {
+      return res.status(400).json({ error: "Missing copy payload" });
+    }
+    await writeSiteCopy(copy);
+    return res.json({ ok: true });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return res.status(500).json({ error: message });
   }
 });
 

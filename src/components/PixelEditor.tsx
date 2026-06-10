@@ -20,6 +20,26 @@ const PRESET_PALETTES = [
 ];
 
 const TEMPLATES: Record<string, { pixels: string[] }> = {
+  invader: {
+    pixels: [
+      '.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.',
+      '.','.','.','#FF4466','#FF4466','.','.','.','.','.','.','#FF4466','#FF4466','.','.','.',
+      '.','.','.','.','.','#FF4466','.','.','.','.','#FF4466','.','.','.','.','.',
+      '.','.','.','.','.','#FF4466','.','.','.','.','#FF4466','.','.','.','.','.',
+      '.','.','.','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','.','.','.',
+      '.','.','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','.','.',
+      '.','.','#FF4466','#FFFFFF','#FF4466','#FF4466','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FF4466','#FF4466','#FFFFFF','#FF4466','.','.',
+      '.','#FF4466','#FF4466','#FF4466','#FF4466','#FFFFFF','#FFFFFF','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','.',
+      '.','#FF4466','#FF4466','#FF4466','#FF4466','#FFFFFF','#FFFFFF','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','.',
+      '#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FFFFFF','#FFFFFF','#FF4466','#FFFFFF','#FFFFFF','#FFFFFF','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466',
+      '#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466',
+      '#FF4466','.','#FF4466','#FF4466','#FF4466','#FF4466','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FFFFFF','#FF4466','#FF4466','#FF4466','.','#FF4466',
+      '#FF4466','.','.','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','#FF4466','.','.','#FF4466',
+      '.','.','.','.','.','#FF4466','.','.','.','.','#FF4466','.','.','.','.','.',
+      '.','.','.','#FF4466','#FF4466','#FF4466','.','.','.','.','#FF4466','#FF4466','#FF4466','.','.','.',
+      '.','.','.','.','.','.','.','.','.','.','.','.','.','.','.','.',
+    ],
+  },
   ghost: {
     pixels: [
       '.','.','.','.','#FF00AA','#FF00AA','#FF00AA','#FF00AA','#FF00AA','#FF00AA','.','.','.','.','.',
@@ -92,7 +112,7 @@ export function PixelEditor() {
   const [currentTool, setCurrentTool] = useState<'pen' | 'eraser' | 'fill'>('pen');
   const [showGrid, setShowGrid] = useState(true);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState('ghost');
+  const [selectedTemplate, setSelectedTemplate] = useState('invader');
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
   const [aiConfidence, setAiConfidence] = useState<number | null>(null);
 
@@ -103,11 +123,12 @@ export function PixelEditor() {
     if (TEMPLATES[key]) {
       setPixels([...TEMPLATES[key].pixels]);
       setSelectedTemplate(key);
+      if (key === 'invader') setActiveColor('#FF4466');
     }
   };
 
   useEffect(() => {
-    loadTemplate('ghost');
+    loadTemplate('invader');
   }, []);
 
   // Animation simulation - simple wave distortion or color shifting

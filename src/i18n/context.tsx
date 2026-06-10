@@ -9,6 +9,22 @@ import {
 } from "react";
 import { translations } from "./locales";
 import {
+  flattenDict,
+  mergeTranslationDict,
+  unflattenDict,
+  type FlatCopy,
+} from "./flatten";
+import {
+  emptySiteCopy,
+  fetchSiteCopyFromApi,
+  fetchSiteCopyFromUrl,
+  mergeSiteCopyStores,
+  readSiteCopyFromStorage,
+  saveSiteCopyToApi,
+  writeSiteCopyToStorage,
+  type SiteCopyStore,
+} from "./siteCopy";
+import {
   DEFAULT_LOCALE,
   LOCALE_STORAGE_KEY,
   LOCALES,
@@ -31,6 +47,7 @@ function interpolate(text: string, params?: Record<string, string | number>): st
   let out = text;
   for (const [k, v] of Object.entries(params)) {
     out = out.replaceAll(`{{${k}}}`, String(v));
+    out = out.replaceAll(`{${k}}`, String(v));
   }
   return out;
 }
@@ -51,19 +68,62 @@ export function detectLocale(): Locale {
   return "en";
 }
 
+export type SaveSiteCopyResult = "server" | "local";
+
 interface I18nContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
   t: (key: string, params?: Record<string, string | number>) => string;
   dict: TranslationDict;
+  siteCopy: SiteCopyStore;
+  setSiteCopyField: (locale: Locale, key: string, value: string) => void;
+  resetSiteCopyLocale: (locale: Locale) => void;
+  resetSiteCopyField: (locale: Locale, key: string) => void;
+  saveSiteCopy: () => Promise<SaveSiteCopyResult>;
+  copyDirty: boolean;
+  copySchema: FlatCopy;
+  defaultFlatForLocale: (locale: Locale) => FlatCopy;
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 
+const COPY_SCHEMA = flattenDict(translations.en);
+
+function buildDict(locale: Locale, siteCopy: SiteCopyStore): TranslationDict {
+  const overrides = unflattenDict(siteCopy[locale]);
+  return mergeTranslationDict(translations[locale], overrides);
+}
+
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(detectLocale);
+  const [siteCopy, setSiteCopy] = useState<SiteCopyStore>(emptySiteCopy);
+  const [copyDirty, setCopyDirty] = useState(false);
+  const [copyLoaded, setCopyLoaded] = useState(false);
 
-  const dict = useMemo(() => translations[locale], [locale]);
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const merged = mergeSiteCopyStores(
+        await fetchSiteCopyFromUrl(),
+        readSiteCopyFromStorage(),
+        await fetchSiteCopyFromApi()
+      );
+      if (!cancelled) {
+        setSiteCopy(merged);
+        setCopyLoaded(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const dict = useMemo(
+    () => (copyLoaded ? buildDict(locale, siteCopy) : translations[locale]),
+    [locale, siteCopy, copyLoaded]
+  );
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);
@@ -85,6 +145,40 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     [dict]
   );
 
+  const setSiteCopyField = useCallback((loc: Locale, key: string, value: string) => {
+    setSiteCopy((prev) => ({
+      ...prev,
+      [loc]: { ...prev[loc], [key]: value },
+    }));
+    setCopyDirty(true);
+  }, []);
+
+  const resetSiteCopyLocale = useCallback((loc: Locale) => {
+    setSiteCopy((prev) => ({ ...prev, [loc]: {} }));
+    setCopyDirty(true);
+  }, []);
+
+  const resetSiteCopyField = useCallback((loc: Locale, key: string) => {
+    setSiteCopy((prev) => {
+      const next = { ...prev[loc] };
+      delete next[key];
+      return { ...prev, [loc]: next };
+    });
+    setCopyDirty(true);
+  }, []);
+
+  const saveSiteCopy = useCallback(async (): Promise<SaveSiteCopyResult> => {
+    writeSiteCopyToStorage(siteCopy);
+    const serverOk = await saveSiteCopyToApi(siteCopy);
+    setCopyDirty(false);
+    return serverOk ? "server" : "local";
+  }, [siteCopy]);
+
+  const defaultFlatForLocale = useCallback(
+    (loc: Locale) => flattenDict(translations[loc]),
+    []
+  );
+
   useEffect(() => {
     document.documentElement.lang = locale;
     const title = getNested(dict, "meta.title");
@@ -95,8 +189,33 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [locale, dict]);
 
   const value = useMemo(
-    () => ({ locale, setLocale, t, dict }),
-    [locale, setLocale, t, dict]
+    () => ({
+      locale,
+      setLocale,
+      t,
+      dict,
+      siteCopy,
+      setSiteCopyField,
+      resetSiteCopyLocale,
+      resetSiteCopyField,
+      saveSiteCopy,
+      copyDirty,
+      copySchema: COPY_SCHEMA,
+      defaultFlatForLocale,
+    }),
+    [
+      locale,
+      setLocale,
+      t,
+      dict,
+      siteCopy,
+      setSiteCopyField,
+      resetSiteCopyLocale,
+      resetSiteCopyField,
+      saveSiteCopy,
+      copyDirty,
+      defaultFlatForLocale,
+    ]
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
