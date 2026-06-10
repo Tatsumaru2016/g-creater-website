@@ -1,0 +1,6 @@
+{
+  "name": "G.creater",
+  "description": "An immersive, Awwwards SOTD-level interactive 3D showcase for G.creater — a powerful yet intuitive pixel art and skeleton animation creation tool.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
