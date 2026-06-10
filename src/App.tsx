@@ -26,14 +26,6 @@ import { IceClimberWanderer } from './components/IceClimberWanderer';
 import { GundamZakuDuel } from './components/GundamZakuDuel';
 import { setInvaderSoundEnabled } from './audio/invaderAudio';
 import { PixelCharacter } from './types';
-import {
-  getLastMinigameClientY,
-  isMinigameKeyboardHeld,
-  reportMinigameClientX,
-  subscribeMinigamePointerFrame,
-} from './utils/headerMinigameInput';
-
-const CUSTOM_CURSOR_HALF = 10;
 const SCENE_PANEL_SELECTORS = [
   '#main-pixel-editor',
   '#scene-panel-1',
@@ -99,7 +91,6 @@ export default function App() {
   const [characters, setCharacters] = useState<PixelCharacter[]>([]);
 
   // UI state
-  const customCursorRef = useRef<HTMLDivElement>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [charactersVisible, setCharactersVisible] = useState(readCharactersVisible);
   const [hoveredElement, setHoveredElement] = useState<string | null>(null);
@@ -236,32 +227,6 @@ export default function App() {
     };
   }, []);
 
-  // カスタムカーソル: ポインター移動で即時描画（ミニゲーム座標も同期）
-  useEffect(() => {
-    const paintCursor = (x: number, y: number) => {
-      const el = customCursorRef.current;
-      if (!el) return;
-      el.style.transform = `translate3d(${x - CUSTOM_CURSOR_HALF}px, ${y - CUSTOM_CURSOR_HALF}px, 0)`;
-    };
-
-    const onPointer = (e: PointerEvent) => {
-      reportMinigameClientX(e.clientX, e.clientY);
-      paintCursor(e.clientX, e.clientY);
-    };
-
-    window.addEventListener('pointermove', onPointer, { passive: true });
-    const unsubFrame = subscribeMinigamePointerFrame((x) => {
-      if (!isMinigameKeyboardHeld()) return;
-      const y = getLastMinigameClientY() ?? window.innerHeight * 0.5;
-      paintCursor(x, y);
-    });
-
-    return () => {
-      window.removeEventListener('pointermove', onPointer);
-      unsubFrame();
-    };
-  }, []);
-
   // Action callback when character is clicked!
   const handleCharacterAction = (id: string) => {
     // Generate lovely pixel dialogue
@@ -301,22 +266,13 @@ export default function App() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#07070A] text-white selection:bg-[#00F5FF]/30 select-none overflow-hidden font-sans cursor-none">
+    <div className="relative min-h-screen bg-[#07070A] text-white selection:bg-[#00F5FF]/30 select-none overflow-hidden font-sans">
       
       {/* 3D Cosmic starry Canvas background */}
       <Background3D scrollIndex={scrollIndex} scrollProgress={scrollProgressSnap} />
 
       {/* Grid Phosphor Scanline Overlay */}
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_40%,_rgba(0,0,0,0.45)_95%)] pointer-events-none z-10" />
-
-      {/* CUSTOM GLOWING RETRO CURSOR */}
-      <div
-        ref={customCursorRef}
-        className="fixed left-0 top-0 w-5 h-5 border-2 border-cyan-400 rounded-sm pointer-events-none z-[100] hidden md:block will-change-transform shadow-[0_0_12px_rgba(0,245,255,0.6)]"
-        style={{ transform: 'translate3d(-100px, -100px, 0)' }}
-      >
-        <div className="absolute inset-2 bg-pink-500/80 rounded-sm" />
-      </div>
 
       {/* TOP GLOWING STATUS BAR HEADER */}
       <header id="spatial_global_header" className="fixed top-0 inset-x-0 h-16 border-b border-white/[0.05] bg-black/60 backdrop-blur-md flex items-center justify-between px-6 z-50">
