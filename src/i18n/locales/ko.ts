@@ -45,8 +45,8 @@ const ko: TranslationDict = {
   header: {
     edition: "SOTD Edition ✦ 랩 모드",
     version: "PIXEL_COMPILER_V1.2",
-    mute: "환경음 음소거",
-    unmute: "환경음 켜기",
+    mute: "모든 효과음 음소거",
+    unmute: "모든 효과음 켜기",
     aiStudio: "AI Studio 엔진",
   },
   invaders: {
@@ -57,6 +57,8 @@ const ko: TranslationDict = {
     hi: "최고 {{count}}",
     clear: "GAME CLEAR!",
     gameOver: "GAME OVER",
+    soundOn: "인베이더 효과음 켜기",
+    soundOff: "인베이더 효과음 끄기",
   },
   arkanoid: {
     controlHint: "커서·←→ 이동 · Space 발사 (두 게임 동시)",
@@ -65,6 +67,8 @@ const ko: TranslationDict = {
     score: "점수 {{count}}",
     clear: "STAGE CLEAR!",
     gameOver: "GAME OVER",
+    soundOn: "알카노이드 효과음 켜기",
+    soundOff: "알카노이드 효과음 끄기",
   },
   iceClimber: {
     controlHint:

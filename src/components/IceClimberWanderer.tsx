@@ -125,12 +125,12 @@ function flipPatrolTarget(s: ClimberState, anchor: ClimberAnchor) {
 }
 
 export interface IceClimberWandererProps {
-  soundEnabled: boolean;
+  globalSoundOn: boolean;
   scrollProgress: number;
 }
 
 export function IceClimberWanderer({
-  soundEnabled,
+  globalSoundOn,
   scrollProgress,
 }: IceClimberWandererProps) {
   const { t } = useI18n();
@@ -166,7 +166,7 @@ export function IceClimberWanderer({
       if (impactRef.current) return;
       impactRef.current = true;
       shakeScenePanel(scrollRef.current);
-      if (soundEnabled) {
+      if (globalSoundOn) {
         resumeAudioContext();
         playHammerThud();
       }
@@ -273,7 +273,7 @@ export function IceClimberWanderer({
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [soundEnabled]);
+  }, [globalSoundOn]);
 
   const hintEl =
     typeof document !== "undefined"

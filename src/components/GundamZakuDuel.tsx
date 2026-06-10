@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { CharacterSpeechBubble } from "./Characters";
 import { WANDERER_SPRITE_SCALE } from "../constants/characterSpriteScale";
 import { homageFrames, type HomageId } from "../data/homageSprites";
+import { playBeamSaberBuon } from "../audio/invaderAudio";
 import { useI18n } from "../i18n";
 
 const SPRITE_SCALE = WANDERER_SPRITE_SCALE;
@@ -347,6 +348,7 @@ function tickSimulation(
     separation < SLASH_RANGE &&
     Math.random() < SLASH_CHANCE * dt
   ) {
+    playBeamSaberBuon();
     guncore = trySpeak(
       { ...guncore, slashTicks: SLASH_DURATION, fireCooldown: 28 },
       lines.gundam

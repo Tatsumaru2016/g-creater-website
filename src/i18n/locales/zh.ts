@@ -45,8 +45,8 @@ const zh: TranslationDict = {
   header: {
     edition: "SOTD Edition ✦ 实验室模式",
     version: "PIXEL_COMPILER_V1.2",
-    mute: "静音环境音",
-    unmute: "开启环境音",
+    mute: "静音所有音效",
+    unmute: "开启所有音效",
     hideCharacters: "隐藏角色（龙与迷你游戏仍显示）",
     showCharacters: "显示角色",
     aiStudio: "AI Studio 引擎",
@@ -59,6 +59,8 @@ const zh: TranslationDict = {
     hi: "最高 {{count}}",
     clear: "GAME CLEAR!",
     gameOver: "GAME OVER",
+    soundOn: "入侵者音效开",
+    soundOff: "入侵者音效关",
   },
   arkanoid: {
     controlHint: "光标移动 · 空格发球（两款同时操作）",
@@ -67,6 +69,8 @@ const zh: TranslationDict = {
     score: "得分 {{count}}",
     clear: "STAGE CLEAR!",
     gameOver: "GAME OVER",
+    soundOn: "打砖块音效开",
+    soundOff: "打砖块音效关",
   },
   iceClimber: {
     controlHint: "在底部滚动提示框上方窄范围内左右巡逻；偶尔挥锤使面板震动",

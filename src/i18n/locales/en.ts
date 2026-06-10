@@ -46,8 +46,8 @@ const en: TranslationDict = {
   header: {
     edition: "SOTD Edition ✦ Laboratory Mode",
     version: "PIXEL_COMPILER_V1.2",
-    mute: "Mute ambience",
-    unmute: "Unmute laboratory ambience",
+    mute: "Mute all sound effects",
+    unmute: "Turn on all sound effects",
     hideCharacters: "Hide characters (dragon & mini-games stay visible)",
     showCharacters: "Show characters",
     aiStudio: "AI Studio Engine",
@@ -60,6 +60,8 @@ const en: TranslationDict = {
     hi: "HI {{count}}",
     clear: "GAME CLEAR!",
     gameOver: "GAME OVER",
+    soundOn: "Invaders SFX on",
+    soundOff: "Invaders SFX off",
   },
   arkanoid: {
     controlHint: "Cursor to move · Space to launch (both games at once)",
@@ -68,6 +70,8 @@ const en: TranslationDict = {
     score: "SCORE {{count}}",
     clear: "STAGE CLEAR!",
     gameOver: "GAME OVER",
+    soundOn: "Arkanoid SFX on",
+    soundOff: "Arkanoid SFX off",
   },
   iceClimber: {
     controlHint:

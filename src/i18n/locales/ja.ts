@@ -46,8 +46,8 @@ const ja: TranslationDict = {
   header: {
     edition: "SOTD Edition ✦ ラボモード",
     version: "PIXEL_COMPILER_V1.2",
-    mute: "環境音をミュート",
-    unmute: "環境音をオン",
+    mute: "すべての効果音をミュート",
+    unmute: "すべての効果音をオン",
     hideCharacters: "キャラクターを非表示（ドラゴン・ミニゲーム除く）",
     showCharacters: "キャラクターを表示",
     aiStudio: "AI Studio エンジン",
@@ -60,6 +60,8 @@ const ja: TranslationDict = {
     hi: "HI {{count}}",
     clear: "GAME CLEAR!",
     gameOver: "GAME OVER",
+    soundOn: "インベーダーSEオン",
+    soundOff: "インベーダーSEオフ",
   },
   arkanoid: {
     controlHint: "カーソルで移動・Spaceで発射（インベーダー＋アルカノイド同時）",
@@ -68,6 +70,8 @@ const ja: TranslationDict = {
     score: "SCORE {{count}}",
     clear: "STAGE CLEAR!",
     gameOver: "GAME OVER",
+    soundOn: "アルカノイドSEオン",
+    soundOff: "アルカノイドSEオフ",
   },
   iceClimber: {
     controlHint:

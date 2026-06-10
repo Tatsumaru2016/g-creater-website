@@ -1,4 +1,9 @@
 import {
+  playHeroSwordSlash,
+  playMaouAttack,
+  playSwordSlash,
+} from "../audio/invaderAudio";
+import {
   CHARACTER_SPRITE_ROWS,
   HOMAGE_8ROW_SCALE,
   WANDERER_SPRITE_SCALE,
@@ -200,6 +205,10 @@ export interface BorderActsState {
   titleOvalAnchor: TitleOvalAnchor | null;
   /** 勇者 vs 魔王の決闘が走る枠の辺 */
   duelEdge: DuelEdge;
+  /** 決闘フェーズ内の効果音ワンショット制御 */
+  duelSfxKey: string;
+  /** リンク飛び込み攻撃の効果音 */
+  linkLeapSlashSfx: boolean;
 }
 
 /** 8-row props (? block, mushroom) — same 35px height as 14-row wanderers */
@@ -738,6 +747,8 @@ function tickDuel(s: BorderActsState, dt: number) {
     case "hero_sword_rush":
       s.heroRushT = Math.min(0.16, progress * 0.18);
       s.heroYOffset = Math.sin(progress * Math.PI * 3) * -3;
+      tryDuelSfx(s, `${s.duelPhase}:1`, playHeroSwordSlash, progress, 0.22);
+      tryDuelSfx(s, `${s.duelPhase}:2`, playHeroSwordSlash, progress, 0.58);
       if (progress > 0.22 && progress < 0.38) {
         const hit = Math.sin(((progress - 0.22) / 0.16) * Math.PI);
         s.heroSlashT = (progress - 0.22) / 0.16;
@@ -763,6 +774,7 @@ function tickDuel(s: BorderActsState, dt: number) {
         const leap = (progress - 0.28) / 0.54;
         s.heroYOffset = -Math.sin(leap * Math.PI) * HERO_LEAP_HEIGHT;
         s.heroRushT = Math.min(HERO_LEAP_RUSH, 0.02 + leap * HERO_LEAP_RUSH);
+        tryDuelSfx(s, `${s.duelPhase}:leap`, playHeroSwordSlash, progress, 0.5);
         if (leap > 0.38 && leap < 0.78) {
           const hit = (leap - 0.38) / 0.4;
           s.heroSlashT = hit;
@@ -782,6 +794,7 @@ function tickDuel(s: BorderActsState, dt: number) {
       s.heroRushT = Math.min(0.16, 0.08 + progress * 0.12);
       s.heroYOffset = -Math.sin(progress * Math.PI) * 12;
       s.heroSlashT = progress < 0.72 ? progress / 0.72 : null;
+      tryDuelSfx(s, `${s.duelPhase}:fin`, playHeroSwordSlash, progress, 0.24);
       if (progress > 0.2) {
         const hit = Math.min(1, (progress - 0.2) / 0.55);
         applyDragonHit(s, hit * 0.35, hit * 0.0008);
@@ -802,6 +815,7 @@ function tickDuel(s: BorderActsState, dt: number) {
       s.heroYOffset =
         progress > 0.48 ? -Math.sin(((progress - 0.48) / 0.52) * Math.PI) * 20 : 0;
       s.dragonSlashT = progress < 0.32 ? null : Math.min(1, (progress - 0.32) / 0.48);
+      tryDuelSfx(s, `${s.duelPhase}:slash`, playMaouAttack, progress, 0.34);
       if (s.dragonSlashT !== null && s.dragonSlashT > 0.76 && s.dragonSlashT < 0.9) {
         applyHeroHit(s, 0.5 * dt, 0.00085 * dt);
         s.duelFlash = Math.max(s.duelFlash, 6);
@@ -810,6 +824,7 @@ function tickDuel(s: BorderActsState, dt: number) {
     case "clash":
       s.heroRushT = Math.min(0.14, progress * 0.16);
       s.heroYOffset = Math.sin(progress * Math.PI * 4) * -5;
+      tryDuelSfx(s, `${s.duelPhase}:clash`, playHeroSwordSlash, progress, 0.22);
       if (progress > 0.2) {
         const hit = (progress - 0.2) / 0.8;
         s.heroSlashT = hit;
@@ -842,6 +857,7 @@ function tickDuel(s: BorderActsState, dt: number) {
     }
     s.duelPhase = next;
     s.duelTimer = 0;
+    s.duelSfxKey = "";
   }
 }
 
@@ -934,7 +950,22 @@ export function initBorderActs(bounds: PanelBounds): BorderActsState {
     sceneWidth: 0,
     titleOvalAnchor: null,
     duelEdge: 0,
+    duelSfxKey: "",
+    linkLeapSlashSfx: false,
   };
+}
+
+function tryDuelSfx(
+  s: BorderActsState,
+  key: string,
+  play: () => void,
+  progress: number,
+  threshold: number
+) {
+  if (progress >= threshold && progress < threshold + 0.06 && s.duelSfxKey !== key) {
+    s.duelSfxKey = key;
+    play();
+  }
 }
 
 export function initDuelActs(bounds: PanelBounds, edge: DuelEdge = 0): BorderActsState {
@@ -1003,9 +1034,18 @@ export function tickBorderActs(
       s.linkLeapStartY = pt.y + pt.yOffset;
       s.linkPhase = "leap";
       s.linkProgress = 0;
+      s.linkLeapSlashSfx = false;
     }
   } else {
     s.linkProgress += 0.026 * dt;
+    if (
+      !s.linkLeapSlashSfx &&
+      s.linkProgress >= 0.48 &&
+      s.linkProgress < 0.55
+    ) {
+      s.linkLeapSlashSfx = true;
+      playSwordSlash();
+    }
     if (s.linkProgress >= 1) {
       s.linkPhase = "patrol";
       s.linkPatrolU = linkLeapStartU(s);

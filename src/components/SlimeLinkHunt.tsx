@@ -10,6 +10,7 @@ import {
   CharacterSpeechBubble,
   RenderPixelSprite,
 } from "./Characters";
+import { playSwordSlash } from "../audio/invaderAudio";
 import { useI18n } from "../i18n";
 import { WANDERER_SPRITE_SCALE } from "../constants/characterSpriteScale";
 import {
@@ -329,6 +330,7 @@ function tickLink(
   if (inSwordRange(next.x, next.y, prey.x, prey.y)) {
     next.phase = "attack";
     next.attackProg = 0;
+    playSwordSlash();
     return { link: next, slimes: nextSlimes };
   }
 
@@ -351,6 +353,7 @@ function tickLink(
   if (inSwordRange(next.x, next.y, prey.x, prey.y)) {
     next.phase = "attack";
     next.attackProg = 0;
+    playSwordSlash();
   }
 
   return { link: next, slimes: nextSlimes };

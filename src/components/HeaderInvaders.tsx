@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  isInvaderSoundEnabled,
   playInvaderSfx,
   resumeAudioContext,
   setInvaderBgmTempo,
-  setInvaderSoundEnabled,
+  setInvaderGameSoundEnabled,
 } from "../audio/invaderAudio";
 import { useI18n } from "../i18n";
+import { MinigameSoundToggle } from "./MinigameSoundToggle";
 import {
   entityLeftXFromClient,
   subscribeHeaderMinigameFire,
@@ -273,11 +273,13 @@ function spriteRgbPixels(grid: string[][]) {
 }
 
 interface HeaderInvadersProps {
-  soundEnabled: boolean;
+  globalSoundOn: boolean;
 }
 
-export default function HeaderInvaders({ soundEnabled }: HeaderInvadersProps) {
+export default function HeaderInvaders({ globalSoundOn }: HeaderInvadersProps) {
   const { t } = useI18n();
+  const [localSoundOn, setLocalSoundOn] = useState(true);
+  const sfxEnabled = globalSoundOn && localSoundOn;
   const arenaRef = useRef<HTMLDivElement | null>(null);
   const [arenaW, setArenaW] = useState(ARENA_W_DEFAULT);
   const restartTimerRef = useRef<number | null>(null);
@@ -419,7 +421,7 @@ export default function HeaderInvaders({ soundEnabled }: HeaderInvadersProps) {
     ];
     bulletsRef.current = nextBullets;
     setBullets(nextBullets);
-    if (isInvaderSoundEnabled()) playInvaderSfx("shoot");
+    playInvaderSfx("shoot");
   }, []);
 
   tryFirePlayerRef.current = tryFirePlayer;
@@ -593,7 +595,7 @@ export default function HeaderInvaders({ soundEnabled }: HeaderInvadersProps) {
                 y: iy + INVADER_H / 2,
                 ttl: 220,
               });
-              if (isInvaderSoundEnabled()) playInvaderSfx("explosion");
+              playInvaderSfx("explosion");
               break;
             }
           }
@@ -747,9 +749,8 @@ export default function HeaderInvaders({ soundEnabled }: HeaderInvadersProps) {
   }, []);
 
   useEffect(() => {
-    setInvaderSoundEnabled(soundEnabled);
-    return () => setInvaderSoundEnabled(false);
-  }, [soundEnabled]);
+    setInvaderGameSoundEnabled(localSoundOn);
+  }, [localSoundOn]);
 
   const padScore = (n: number) => String(n).padStart(4, "0");
 
@@ -758,7 +759,7 @@ export default function HeaderInvaders({ soundEnabled }: HeaderInvadersProps) {
       ref={arenaRef}
       tabIndex={0}
       onMouseDown={() => {
-        if (soundEnabled) resumeAudioContext();
+        if (sfxEnabled) resumeAudioContext();
       }}
       onWheel={(e) => e.stopPropagation()}
       title={t("invaders.controlHint")}
@@ -772,7 +773,15 @@ export default function HeaderInvaders({ soundEnabled }: HeaderInvadersProps) {
           {phase === "game-clear" && t("invaders.clear")}
           {phase === "game-over" && t("invaders.gameOver")}
         </span>
-        <span>♥{lives}</span>
+        <span className="flex items-center gap-0.5 pointer-events-auto">
+          <MinigameSoundToggle
+            on={localSoundOn}
+            onToggle={() => setLocalSoundOn((v) => !v)}
+            labelOn={t("invaders.soundOn")}
+            labelOff={t("invaders.soundOff")}
+          />
+          <span className="pointer-events-none">♥{lives}</span>
+        </span>
       </div>
 
       <div className="absolute left-0 right-0" style={{ top: HUD_H, bottom: 0 }}>

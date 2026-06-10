@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { playMarioBlockHit, playMarioPowerUp } from "../audio/invaderAudio";
 import { RenderPixelSprite } from "./Characters";
 
 const T = "#00000000";
@@ -538,6 +539,7 @@ export function SceneTitleMarioAct({ scrollProgress }: SceneTitleMarioActProps) 
             s.blockBump = 18;
             s.mushroomX = anchor.centerX;
             s.mushroomY = mushroomEmergeY(anchor.blockY, blockH, 0);
+            playMarioBlockHit();
           }
 
           if (s.mushroomActive) {
@@ -602,6 +604,7 @@ export function SceneTitleMarioAct({ scrollProgress }: SceneTitleMarioActProps) 
                 )
               ) {
                 s.poweredUp = true;
+                playMarioPowerUp();
                 s.marioY = bigMarioStandY(anchor);
                 s.marioX = clampMarioX(
                   s.marioX,

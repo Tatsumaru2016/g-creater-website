@@ -1,5 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  playArkanoidSfx,
+  resumeAudioContext,
+  setArkanoidGameSoundEnabled,
+} from "../audio/invaderAudio";
 import { useI18n } from "../i18n";
+import { MinigameSoundToggle } from "./MinigameSoundToggle";
 import {
   arenaCenterXFromClient,
   subscribeHeaderMinigameFire,
@@ -109,8 +115,14 @@ function freshSim(w: number): SimState {
   };
 }
 
-export default function HeaderArkanoid() {
+interface HeaderArkanoidProps {
+  globalSoundOn: boolean;
+}
+
+export default function HeaderArkanoid({ globalSoundOn }: HeaderArkanoidProps) {
   const { t } = useI18n();
+  const [localSoundOn, setLocalSoundOn] = useState(true);
+  const sfxEnabled = globalSoundOn && localSoundOn;
   const arenaRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [arenaW, setArenaW] = useState(ARENA_W_DEFAULT);
@@ -152,6 +164,7 @@ export default function HeaderArkanoid() {
   const scheduleStageClear = useCallback(() => {
     phaseRef.current = "game-clear";
     setPhase("game-clear");
+    playArkanoidSfx("clear");
     if (restartTimerRef.current !== null) {
       window.clearTimeout(restartTimerRef.current);
     }
@@ -163,6 +176,7 @@ export default function HeaderArkanoid() {
   const scheduleGameOver = useCallback(() => {
     phaseRef.current = "game-over";
     setPhase("game-over");
+    playArkanoidSfx("gameOver");
     if (restartTimerRef.current !== null) {
       window.clearTimeout(restartTimerRef.current);
     }
@@ -181,6 +195,7 @@ export default function HeaderArkanoid() {
 
     livesRef.current -= 1;
     setLives(livesRef.current);
+    playArkanoidSfx("loseLife");
 
     if (livesRef.current <= 0) {
       scheduleGameOver();
@@ -200,6 +215,7 @@ export default function HeaderArkanoid() {
     const angle = (Math.random() * 0.5 - 0.25) * Math.PI;
     sim.ballVx = Math.sin(angle) * BALL_SPEED;
     sim.ballVy = -Math.cos(angle) * BALL_SPEED;
+    playArkanoidSfx("launch");
   }, []);
 
   launchBallRef.current = launchBall;
@@ -290,6 +306,7 @@ export default function HeaderArkanoid() {
           const angle = hit * 1.35;
           sim.ballVx = Math.sin(angle) * speed;
           sim.ballVy = -Math.abs(Math.cos(angle) * speed);
+          playArkanoidSfx("paddle");
         }
 
         for (let row = 0; row < BRICK_ROWS; row++) {
@@ -301,6 +318,7 @@ export default function HeaderArkanoid() {
             sim.bricks[row][col] = false;
             scoreRef.current += 10;
             setScore(scoreRef.current);
+            playArkanoidSfx("brick");
 
             const overlapL = sim.ballX + BALL_R - br.x;
             const overlapR = br.x + br.w - (sim.ballX - BALL_R);
@@ -394,12 +412,19 @@ export default function HeaderArkanoid() {
     };
   }, []);
 
+  useEffect(() => {
+    setArkanoidGameSoundEnabled(localSoundOn);
+  }, [localSoundOn]);
+
   const padScore = (n: number) => String(n).padStart(4, "0");
 
   return (
     <div
       ref={arenaRef}
       tabIndex={0}
+      onMouseDown={() => {
+        if (sfxEnabled) resumeAudioContext();
+      }}
       onWheel={(e) => e.stopPropagation()}
       title={t("arkanoid.controlHint")}
       aria-label={t("arkanoid.ariaLabel")}
@@ -412,7 +437,15 @@ export default function HeaderArkanoid() {
           {phase === "game-clear" && t("arkanoid.clear")}
           {phase === "game-over" && t("arkanoid.gameOver")}
         </span>
-        <span>♥{lives}</span>
+        <span className="flex items-center gap-0.5 pointer-events-auto">
+          <MinigameSoundToggle
+            on={localSoundOn}
+            onToggle={() => setLocalSoundOn((v) => !v)}
+            labelOn={t("arkanoid.soundOn")}
+            labelOff={t("arkanoid.soundOff")}
+          />
+          <span className="pointer-events-none">♥{lives}</span>
+        </span>
       </div>
 
       <canvas

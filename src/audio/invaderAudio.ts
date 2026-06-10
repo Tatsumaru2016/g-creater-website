@@ -1,6 +1,8 @@
 let audioCtx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
-let soundOn = false;
+let globalSoundOn = false;
+let invaderGameSoundOn = true;
+let arkanoidGameSoundOn = true;
 let bgmNoteIdx = 0;
 let playEpoch = 0;
 
@@ -57,14 +59,14 @@ function destroyAudioContext() {
 function ensureMasterGain(ctx: AudioContext): GainNode {
   if (!masterGain) {
     masterGain = ctx.createGain();
-    masterGain.gain.value = soundOn ? 1 : 0;
+    masterGain.gain.value = globalSoundOn ? 1 : 0;
     masterGain.connect(ctx.destination);
   }
   return masterGain;
 }
 
 function canPlay(epoch: number): boolean {
-  return soundOn && epoch === playEpoch;
+  return globalSoundOn && epoch === playEpoch;
 }
 
 function getCtx(epoch: number): AudioContext | null {
@@ -74,7 +76,7 @@ function getCtx(epoch: number): AudioContext | null {
       audioCtx = new (window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       ensureMasterGain(audioCtx);
-      if (!soundOn) {
+      if (!globalSoundOn) {
         masterGain!.gain.setValueAtTime(0, audioCtx.currentTime);
         return null;
       }
@@ -109,20 +111,38 @@ function startNode(node: AudioScheduledSourceNode, epoch: number, when = 0) {
   return true;
 }
 
-export function setInvaderSoundEnabled(on: boolean) {
-  if (on === soundOn) return;
+/** サイト全体の Sound ON/OFF（ミニゲーム・環境音すべて） */
+export function setGlobalSoundEnabled(on: boolean) {
+  if (on === globalSoundOn) return;
   if (!on) {
-    soundOn = false;
+    globalSoundOn = false;
     playEpoch++;
     destroyAudioContext();
     return;
   }
-  soundOn = true;
+  globalSoundOn = true;
   playEpoch++;
 }
 
+/** @deprecated use setGlobalSoundEnabled */
+export function setInvaderSoundEnabled(on: boolean) {
+  setGlobalSoundEnabled(on);
+}
+
+export function setInvaderGameSoundEnabled(on: boolean) {
+  invaderGameSoundOn = on;
+}
+
+export function setArkanoidGameSoundEnabled(on: boolean) {
+  arkanoidGameSoundOn = on;
+}
+
+export function isGlobalSoundEnabled() {
+  return globalSoundOn;
+}
+
 export function isInvaderSoundEnabled() {
-  return soundOn;
+  return globalSoundOn && invaderGameSoundOn;
 }
 
 function tone(
@@ -130,26 +150,28 @@ function tone(
   duration: number,
   type: OscillatorType,
   volume: number,
-  freqEnd?: number
+  freqEnd?: number,
+  when?: number
 ) {
   const epoch = playEpoch;
   if (!canPlay(epoch)) return;
   const ctx = getCtx(epoch);
   if (!ctx) return;
 
+  const t0 = when ?? ctx.currentTime;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = type;
-  osc.frequency.setValueAtTime(freq, ctx.currentTime);
+  osc.frequency.setValueAtTime(freq, t0);
   if (freqEnd) {
-    osc.frequency.exponentialRampToValueAtTime(Math.max(freqEnd, 1), ctx.currentTime + duration);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(freqEnd, 1), t0 + duration);
   }
-  gain.gain.setValueAtTime(volume, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+  gain.gain.setValueAtTime(volume, t0);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
   osc.connect(gain);
   gain.connect(ensureMasterGain(ctx));
-  if (!startNode(osc, epoch)) return;
-  osc.stop(ctx.currentTime + duration);
+  if (!startNode(osc, epoch, t0)) return;
+  osc.stop(t0 + duration);
 }
 
 function noiseBurst(duration: number, volume: number) {
@@ -189,7 +211,7 @@ export type InvaderSfx =
   | "ufoAppear";
 
 export function playInvaderSfx(type: InvaderSfx) {
-  if (!soundOn) return;
+  if (!globalSoundOn || !invaderGameSoundOn) return;
 
   switch (type) {
     case "shoot":
@@ -222,18 +244,49 @@ export function playInvaderSfx(type: InvaderSfx) {
   }
 }
 
+export type ArkanoidSfx = "launch" | "brick" | "paddle" | "loseLife" | "clear" | "gameOver";
+
+export function playArkanoidSfx(type: ArkanoidSfx) {
+  if (!globalSoundOn || !arkanoidGameSoundOn) return;
+
+  switch (type) {
+    case "launch":
+      tone(440, 0.06, "square", 0.04, 660);
+      break;
+    case "brick":
+      tone(320 + Math.random() * 80, 0.05, "square", 0.035, 180);
+      break;
+    case "paddle":
+      tone(220, 0.05, "triangle", 0.04, 160);
+      break;
+    case "loseLife":
+      tone(140, 0.12, "sawtooth", 0.05, 70);
+      break;
+    case "clear":
+      tone(392, 0.08, "square", 0.04);
+      tone(523.25, 0.1, "square", 0.04);
+      tone(659.25, 0.12, "square", 0.045);
+      break;
+    case "gameOver":
+      noiseBurst(0.2, 0.06);
+      tone(110, 0.2, "sawtooth", 0.05, 55);
+      break;
+  }
+}
+
 export function setInvaderBgmTempo(_aliveRatio: number) {
   /* march interval controlled in HeaderInvaders */
 }
 
 export function resumeAudioContext() {
-  if (!soundOn) return;
+  if (!globalSoundOn) return;
   const epoch = playEpoch;
   void getCtx(epoch)?.resume();
 }
 
 /** ハンマー打撃 — 低い「ドシン」 */
 export function playHammerThud() {
+  if (!globalSoundOn) return;
   const epoch = playEpoch;
   if (!canPlay(epoch)) return;
   const ctx = getCtx(epoch);
@@ -262,4 +315,54 @@ export function playHammerThud() {
   tone(38, 0.34, "triangle", 0.08, 22);
 }
 
-setInvaderSoundEnabled(false);
+/** ?ブロック頭上ジャンプの「コイン」風ヒット */
+export function playMarioBlockHit() {
+  if (!globalSoundOn) return;
+  tone(988, 0.045, "square", 0.05, 1318.5);
+  tone(1318.5, 0.07, "square", 0.042, 1568);
+}
+
+/** スーパーキノコ取得のパワーアップ音 */
+export function playMarioPowerUp() {
+  if (!globalSoundOn) return;
+  const epoch = playEpoch;
+  const ctx = getCtx(epoch);
+  if (!ctx) return;
+  const t0 = ctx.currentTime;
+  [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((freq, i) => {
+    tone(freq, 0.09, "square", 0.042, undefined, t0 + i * 0.055);
+  });
+}
+
+/** ガンダム・ビームサーベル「ブォン」 */
+export function playBeamSaberBuon() {
+  if (!globalSoundOn) return;
+  tone(90, 0.28, "sawtooth", 0.065, 2200);
+  tone(1800, 0.12, "sawtooth", 0.028, 400);
+  noiseBurst(0.14, 0.035);
+}
+
+/** リンクの剣攻撃 */
+export function playSwordSlash() {
+  if (!globalSoundOn) return;
+  noiseBurst(0.07, 0.048);
+  tone(520, 0.05, "sawtooth", 0.038, 140);
+  tone(280, 0.04, "square", 0.028, 90);
+}
+
+/** DQ勇者の剣攻撃 */
+export function playHeroSwordSlash() {
+  if (!globalSoundOn) return;
+  tone(740, 0.055, "square", 0.04, 220);
+  noiseBurst(0.06, 0.032);
+}
+
+/** 魔王の攻撃 */
+export function playMaouAttack() {
+  if (!globalSoundOn) return;
+  tone(95, 0.14, "sawtooth", 0.052, 48);
+  noiseBurst(0.11, 0.04);
+  tone(180, 0.1, "square", 0.03, 70);
+}
+
+setGlobalSoundEnabled(false);

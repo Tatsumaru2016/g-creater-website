@@ -24,7 +24,7 @@ import HeaderInvaders from './components/HeaderInvaders';
 import HeaderArkanoid from './components/HeaderArkanoid';
 import { IceClimberWanderer } from './components/IceClimberWanderer';
 import { GundamZakuDuel } from './components/GundamZakuDuel';
-import { setInvaderSoundEnabled } from './audio/invaderAudio';
+import { setGlobalSoundEnabled } from './audio/invaderAudio';
 import { assetUrl } from './utils/assetUrl';
 import { PixelCharacter } from './types';
 const SCENE_PANEL_SELECTORS = [
@@ -247,7 +247,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    setInvaderSoundEnabled(!isMuted);
+    setGlobalSoundEnabled(!isMuted);
   }, [isMuted]);
 
   const toggleSound = () => {
@@ -337,10 +337,16 @@ export default function App() {
           <button
             id="g-btn-mute"
             onClick={toggleSound}
-            className="p-2 border border-white/10 rounded-lg hover:border-[#00F5FF]/30 hover:bg-white/5 transition-all text-gray-400 hover:text-[#00F5FF] cursor-pointer"
+            className={`p-2 border rounded-lg transition-all cursor-pointer ${
+              isMuted
+                ? "border-white/10 text-gray-500 hover:border-white/25 hover:bg-white/5 hover:text-gray-300"
+                : "border-[#00F5FF]/50 bg-[#00F5FF]/10 text-[#00F5FF] hover:border-[#00F5FF]/70 hover:bg-[#00F5FF]/15 shadow-[0_0_8px_rgba(0,245,255,0.15)]"
+            }`}
             title={isMuted ? t("header.unmute") : t("header.mute")}
+            aria-pressed={!isMuted}
+            aria-label={isMuted ? t("header.unmute") : t("header.mute")}
           >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 animate-pulse" />}
+            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
 
           {/* Quick specs overlay launcher */}
@@ -365,7 +371,7 @@ export default function App() {
       >
         <div className="flex flex-col gap-0.5 shrink-0 w-[min(147px,calc((50vw-2.5rem)*2/3))]">
           <div id="header-mini-invaders" className="h-[68px]">
-            <HeaderInvaders soundEnabled={!isMuted} />
+            <HeaderInvaders globalSoundOn={!isMuted} />
           </div>
           <p className="text-[7px] leading-tight font-mono text-cyan-400/75 text-center tracking-tight pointer-events-none select-none px-0.5">
             {t("invaders.controlsLabel")}
@@ -373,7 +379,7 @@ export default function App() {
         </div>
         <div className="flex flex-col gap-0.5 shrink-0 w-[min(147px,calc((50vw-2.5rem)*2/3))]">
           <div id="header-mini-arkanoid" className="h-[68px]">
-            <HeaderArkanoid />
+            <HeaderArkanoid globalSoundOn={!isMuted} />
           </div>
           <p className="text-[7px] leading-tight font-mono text-cyan-400/75 text-center tracking-tight pointer-events-none select-none px-0.5">
             {t("arkanoid.controlsLabel")}
@@ -499,7 +505,7 @@ export default function App() {
               </>
             )}
 
-            <IceClimberWanderer soundEnabled={!isMuted} scrollProgress={scrollProgressSnap} />
+            <IceClimberWanderer globalSoundOn={!isMuted} scrollProgress={scrollProgressSnap} />
 
             <GundamZakuDuel />
 
