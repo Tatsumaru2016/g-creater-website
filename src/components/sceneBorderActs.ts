@@ -4,6 +4,7 @@ import {
   WANDERER_SPRITE_SCALE,
 } from "../constants/characterSpriteScale";
 import { homageFrames, PROP_SPRITES } from "../data/homageSprites";
+import { assetUrl } from "../utils/assetUrl";
 
 export interface PanelBounds {
   left: number;
@@ -241,7 +242,7 @@ const MARIO_TEXT_RUN_SPAN = 120;
 const MARIO_BORDER_SNAP = -RUNNER_PX / 2 + 3;
 /** 左辺は枠のすぐ右（内側）に配置 */
 const MARIO_LEFT_INSET = RUNNER_PX / 2;
-const TITLE_LOGO_SRC = "/g-creater-logo.png";
+const TITLE_LOGO_SRC = assetUrl("logo.png");
 const TITLE_LOGO_W = 38;
 const TITLE_LOGO_H = 41;
 /** 透過PNGを原寸のまま表示 */

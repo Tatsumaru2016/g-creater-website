@@ -25,6 +25,7 @@ import HeaderArkanoid from './components/HeaderArkanoid';
 import { IceClimberWanderer } from './components/IceClimberWanderer';
 import { GundamZakuDuel } from './components/GundamZakuDuel';
 import { setInvaderSoundEnabled } from './audio/invaderAudio';
+import { assetUrl } from './utils/assetUrl';
 import { PixelCharacter } from './types';
 const SCENE_PANEL_SELECTORS = [
   '#main-pixel-editor',
@@ -279,7 +280,7 @@ export default function App() {
         <div className="flex items-center gap-4 min-w-0">
           <div id="header-brand-logo" className="relative group cursor-pointer shrink-0 flex items-center gap-1.5">
             <img
-              src="/g-creater-logo.png"
+              src={assetUrl('logo.png')}
               alt=""
               width={38}
               height={41}

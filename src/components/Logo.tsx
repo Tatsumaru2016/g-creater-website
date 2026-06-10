@@ -1,3 +1,11 @@
+import { assetUrl } from '../utils/assetUrl';
+
 export default function Logo() {
-  return <img src="/logo.png" alt="G.CREATER" draggable={false} />;
+  return (
+    <img
+      src={assetUrl('logo.png')}
+      alt="G.CREATER"
+      draggable={false}
+    />
+  );
 }
