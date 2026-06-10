@@ -1,4 +1,5 @@
 import express from "express";
+import { createServer as createNetServer } from "net";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
@@ -10,7 +11,23 @@ dotenv.config();
 const app = express();
 app.use(express.json({ limit: "50mb" }));
 
-const PORT = Number(process.env.PORT) || 3000;
+const PREFERRED_PORT = Number(process.env.PORT) || 3000;
+
+async function resolveListenPort(start: number, attempts = 20): Promise<number> {
+  for (let i = 0; i < attempts; i++) {
+    const port = start + i;
+    const available = await new Promise<boolean>((resolve) => {
+      const tester = createNetServer();
+      tester.once("error", () => resolve(false));
+      tester.once("listening", () => {
+        tester.close(() => resolve(true));
+      });
+      tester.listen(port, "0.0.0.0");
+    });
+    if (available) return port;
+  }
+  throw new Error(`No free port found from ${start} to ${start + attempts - 1}`);
+}
 
 // Initialize Gemini SDK lazily, safety check
 let aiClient: GoogleGenAI | null = null;
@@ -391,8 +408,14 @@ async function initializeServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[G.creater Server] Cyber-Vessel successfully floating on http://0.0.0.0:${PORT}`);
+  const port = await resolveListenPort(PREFERRED_PORT);
+  if (port !== PREFERRED_PORT) {
+    console.warn(
+      `[G.creater Server] Port ${PREFERRED_PORT} is busy; using http://localhost:${port} instead.`
+    );
+  }
+  app.listen(port, "0.0.0.0", () => {
+    console.log(`[G.creater Server] Cyber-Vessel successfully floating on http://localhost:${port}`);
   });
 }
 

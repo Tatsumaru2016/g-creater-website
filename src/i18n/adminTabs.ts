@@ -59,8 +59,8 @@ export const ADMIN_TABS: AdminTabDef[] = [
   },
 ];
 
-const SCENE_TOOL_PREFIXES = new Set(
-  ADMIN_TABS.filter((t) => t.id !== "common").flatMap((t) => t.prefixes)
+const SCENE_TOOL_PREFIXES = ADMIN_TABS.filter((t) => t.id !== "common").flatMap(
+  (t) => t.prefixes
 );
 
 export function keyBelongsToAdminTab(key: string, tabId: AdminTabId): boolean {
